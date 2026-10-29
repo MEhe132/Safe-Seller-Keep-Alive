@@ -18,8 +18,9 @@ function getFormValues() {
   const minSec = Math.max(5, parseInt(document.getElementById('minSecInput').value, 10) || 600);
   const maxSec = Math.max(minSec, parseInt(document.getElementById('maxSecInput').value, 10) || 1000);
   const maxHours = Math.max(0, parseFloat(document.getElementById('maxHoursInput').value) || 0);
+  const preventSleep = document.getElementById('preventSleepCheckbox').checked;
 
-  return { urls, minSec, maxSec, maxHours };
+  return { urls, minSec, maxSec, maxHours, preventSleep };
 }
 
 function updatePresetHighlight(minSec, maxSec) {
@@ -33,6 +34,25 @@ function updatePresetHighlight(minSec, maxSec) {
     btnSafe.className = 'btn-preset active-safe';
   } else if (Number(minSec) === 10 && Number(maxSec) === 15) {
     btnTest.className = 'btn-preset active-test';
+  }
+}
+
+function updateSleepBarUI(isRunning, preventSleep) {
+  const sleepBar = document.getElementById('sleepBar');
+  const pill = document.getElementById('sleepStatusPill');
+
+  if (isRunning && preventSleep) {
+    sleepBar.className = 'sleep-bar awake-active';
+    pill.className = 'sleep-status-pill active';
+    pill.textContent = 'NO-SLEEP ON';
+  } else if (!preventSleep) {
+    sleepBar.className = 'sleep-bar';
+    pill.className = 'sleep-status-pill';
+    pill.textContent = 'DISABLED';
+  } else {
+    sleepBar.className = 'sleep-bar';
+    pill.className = 'sleep-status-pill';
+    pill.textContent = 'STANDBY';
   }
 }
 
@@ -76,6 +96,7 @@ async function refreshUIFromStorage(populateInputs = false) {
       minSec: 600,
       maxSec: 1000,
       maxHours: 8,
+      preventSleep: true,
       urls: DEFAULT_URLS,
       nextRunTime: null,
       refreshCount: 0,
@@ -83,7 +104,6 @@ async function refreshUIFromStorage(populateInputs = false) {
       logs: []
     });
 
-    // Automatically upgrade legacy 300/600 stored settings to 600/1000
     if (data.minSec === 300 && data.maxSec === 600) {
       data.minSec = 600;
       data.maxSec = 1000;
@@ -98,12 +118,14 @@ async function refreshUIFromStorage(populateInputs = false) {
       document.getElementById('minSecInput').value = data.minSec;
       document.getElementById('maxSecInput').value = data.maxSec;
       document.getElementById('maxHoursInput').value = data.maxHours;
+      document.getElementById('preventSleepCheckbox').checked = Boolean(data.preventSleep);
     }
 
     updatePresetHighlight(
       document.getElementById('minSecInput').value,
       document.getElementById('maxSecInput').value
     );
+    updateSleepBarUI(data.isRunning, document.getElementById('preventSleepCheckbox').checked);
 
     const badge = document.getElementById('stateBadge');
     const btnToggle = document.getElementById('btnToggle');
@@ -147,6 +169,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   setInterval(updateCountdownDisplay, 1000);
 
   chrome.storage.onChanged.addListener(async () => {
+    await refreshUIFromStorage(false);
+  });
+
+  document.getElementById('preventSleepCheckbox').addEventListener('change', async (e) => {
+    const preventSleep = e.target.checked;
+    await chrome.runtime.sendMessage({
+      type: 'TOGGLE_SLEEP_LOCK',
+      payload: { preventSleep }
+    });
     await refreshUIFromStorage(false);
   });
 
