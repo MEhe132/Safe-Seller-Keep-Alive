@@ -1,4 +1,5 @@
 const ALARM_NAME = 'safe-keepalive-alarm';
+const HEARTBEAT_ALARM = 'safe-keepalive-heartbeat';
 
 const DEFAULT_STATE = {
   isRunning: false,
@@ -41,10 +42,13 @@ async function appendLog(message) {
 async function syncPowerWakeLock(isRunning, preventSleep = true) {
   try {
     if (isRunning && preventSleep) {
-      // 'system' keeps the laptop CPU/network awake in the background while allowing the screen to turn off
-      chrome.power.requestKeepAwake('system');
+      // On Windows S0 Modern Standby laptops, 'display' is required because turning off the display
+      // immediately locks Windows (Face Unlock) and suspends desktop browsers.
+      chrome.power.requestKeepAwake('display');
+      await chrome.alarms.create(HEARTBEAT_ALARM, { periodInMinutes: 0.4 });
     } else {
       chrome.power.releaseKeepAwake();
+      await chrome.alarms.clear(HEARTBEAT_ALARM);
     }
   } catch (err) {
     console.error('Failed to update power wake lock:', err);
@@ -276,9 +280,20 @@ chrome.runtime.onStartup.addListener(async () => {
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   try {
-    if (alarm.name !== ALARM_NAME) return;
     const { isRunning, preventSleep = true } = await chrome.storage.local.get(['isRunning', 'preventSleep']);
-    if (!isRunning) return;
+    if (!isRunning) {
+      await syncPowerWakeLock(false, false);
+      return;
+    }
+
+    if (alarm.name === HEARTBEAT_ALARM) {
+      if (preventSleep) {
+        chrome.power.requestKeepAwake('display');
+      }
+      return;
+    }
+
+    if (alarm.name !== ALARM_NAME) return;
     await syncPowerWakeLock(true, preventSleep);
     await executeRefreshCycle(false);
   } catch (err) {
