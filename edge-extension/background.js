@@ -41,8 +41,8 @@ async function appendLog(message) {
 async function syncPowerWakeLock(isRunning, preventSleep = true) {
   try {
     if (isRunning && preventSleep) {
-      // 'display' prevents both system sleep and Windows Modern Standby (S0) network suspension
-      chrome.power.requestKeepAwake('display');
+      // 'system' keeps the laptop CPU/network awake in the background while allowing the screen to turn off
+      chrome.power.requestKeepAwake('system');
     } else {
       chrome.power.releaseKeepAwake();
     }
