@@ -5,10 +5,10 @@ A lightweight Manifest V3 browser extension for Microsoft Edge and Google Chrome
 ## Features
 
 - **100% Background & Silent:** Reuses a single existing tab per marketplace (`g2g.com` and `u7buy.com`) without popping up windows or stealing focus.
-- **Randomized Interval (`600s–1000s` Default):** Schedules refreshes at randomized 10 to ~16.5 minute intervals using `chrome.alarms`.
+- **Randomized Interval (`600s–1000s` Default):** Schedules refreshes at randomized 10 to ~16.5 minute intervals using `chrome.alarms` (minimum safety floor of `60s`).
+- **Laptop No-Sleep (`chrome.power`):** Prevents the laptop system/CPU/Wi-Fi from sleeping while running, while still allowing the laptop screen to turn off normally.
 - **Cloudflare & Logout Auto-Pause Protection:** Checks tab titles and URLs before every refresh. Automatically pauses and alerts you if a Cloudflare challenge or login redirect is detected.
 - **Auto-Stop Sleep Safeguard:** Configurable max runtime hours (default `8h`) so the refresher automatically stops after your work session.
-- **Built-in Testing Tools:** Includes `⚡ Test 1 Refresh Now` and `🧪 Quick Test (10s–15s)` presets with a live countdown and activity log.
 
 ## Installation (Microsoft Edge / Chrome)
 
