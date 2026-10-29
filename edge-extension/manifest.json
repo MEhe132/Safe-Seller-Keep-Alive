@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Safe Seller Keep-Alive (G2G & U7BUY)",
+  "version": "1.1.0",
+  "description": "Silently refreshes existing G2G and U7BUY tabs at randomized 600s-1000s intervals with Cloudflare and logout auto-pause protection.",
+  "permissions": [
+    "storage",
+    "alarms",
+    "tabs"
+  ],
+  "host_permissions": [
+    "*://*.g2g.com/*",
+    "*://*.u7buy.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Safe Seller Keep-Alive"
+  }
+}

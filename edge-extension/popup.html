@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Safe Seller Keep-Alive</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --green: #16a34a;
+      --green-hover: #15803d;
+      --red: #dc2626;
+      --red-hover: #b91c1c;
+      --blue: #2563eb;
+      --blue-hover: #1d4ed8;
+      --amber: #d97706;
+      --amber-hover: #b45309;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 390px;
+      padding: 14px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .title {
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge {
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--card);
+      border: 1px solid var(--border);
+    }
+
+    .badge.running {
+      background: rgba(22, 163, 74, 0.2);
+      border-color: var(--green);
+      color: #4ade80;
+    }
+
+    .badge.paused {
+      background: rgba(220, 38, 38, 0.2);
+      border-color: var(--red);
+      color: #f87171;
+    }
+
+    .status-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .status-label {
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 2px;
+    }
+
+    .status-value {
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .warning-banner {
+      display: none;
+      background: rgba(220, 38, 38, 0.15);
+      border: 1px solid var(--red);
+      color: #fca5a5;
+      padding: 8px 10px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .section {
+      margin-bottom: 10px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 5px;
+      color: #cbd5e1;
+      font-size: 12px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 64px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 8px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 11.5px;
+      resize: vertical;
+    }
+
+    textarea:focus, input:focus {
+      outline: 1px solid var(--blue);
+      border-color: var(--blue);
+    }
+
+    .preset-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+    }
+
+    .preset-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .btn-preset {
+      background: #1e293b;
+      border: 2px solid #475569;
+      color: #f8fafc;
+      padding: 8px 6px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+
+    .btn-preset:hover {
+      border-color: #94a3b8;
+      background: #334155;
+    }
+
+    .btn-preset.active-safe {
+      background: rgba(22, 163, 74, 0.25);
+      border-color: #22c55e;
+      color: #4ade80;
+    }
+
+    .btn-preset.active-test {
+      background: rgba(217, 119, 6, 0.25);
+      border-color: #f59e0b;
+      color: #fbbf24;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 6px 8px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    button.primary {
+      padding: 10px 12px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      color: white;
+      transition: background 0.15s;
+    }
+
+    .btn-start {
+      background: var(--green);
+    }
+    .btn-start:hover {
+      background: var(--green-hover);
+    }
+
+    .btn-stop {
+      background: var(--red);
+    }
+    .btn-stop:hover {
+      background: var(--red-hover);
+    }
+
+    .btn-test {
+      background: var(--blue);
+    }
+    .btn-test:hover {
+      background: var(--blue-hover);
+    }
+
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .btn-clear {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 11px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .log-box {
+      background: #090d16;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      height: 105px;
+      overflow-y: auto;
+      padding: 6px 8px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.45;
+    }
+
+    .log-entry {
+      margin-bottom: 3px;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">🛡️ Seller Keep-Alive v1.1</div>
+    <div id="stateBadge" class="badge">STOPPED</div>
+  </div>
+
+  <div id="warningBanner" class="warning-banner"></div>
+
+  <div class="status-box">
+    <div>
+      <div class="status-label">Next Refresh Countdown</div>
+      <div id="countdownText" class="status-value">--</div>
+    </div>
+    <div style="text-align: right;">
+      <div class="status-label">Cycles Done</div>
+      <div id="cycleCount" class="status-value">0</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <label for="urlsInput">Target Links (1 per line — reuses 1 tab per site):</label>
+    <textarea id="urlsInput" spellcheck="false" placeholder="https://www.g2g.com/offers/list&#10;https://www.u7buy.com/member/chat"></textarea>
+  </div>
+
+  <div class="preset-section-title">Step 1: Choose Timer Mode</div>
+  <div class="preset-row">
+    <button type="button" id="btnSafePreset" class="btn-preset active-safe">🛡️ Safe Mode<br>(600s – 1000s)</button>
+    <button type="button" id="btnTestPreset" class="btn-preset">🧪 Quick Test<br>(10s – 15s)</button>
+  </div>
+
+  <div class="grid-3">
+    <div>
+      <label for="minSecInput">Min (sec)</label>
+      <input type="number" id="minSecInput" min="5" max="3600" value="600">
+    </div>
+    <div>
+      <label for="maxSecInput">Max (sec)</label>
+      <input type="number" id="maxSecInput" min="5" max="7200" value="1000">
+    </div>
+    <div>
+      <label for="maxHoursInput">Auto-Stop (h)</label>
+      <input type="number" id="maxHoursInput" min="0" max="24" value="8" title="0 = never auto-stop">
+    </div>
+  </div>
+
+  <div class="preset-section-title">Step 2: Start or Test</div>
+  <div class="actions">
+    <button type="button" id="btnToggle" class="primary btn-start">▶ Start Auto</button>
+    <button type="button" id="btnTestNow" class="primary btn-test">⚡ Test 1 Refresh Now</button>
+  </div>
+
+  <div>
+    <div class="log-header">
+      <label style="margin-bottom: 0;">Activity Log</label>
+      <button type="button" id="btnClearLogs" class="btn-clear">Clear</button>
+    </div>
+    <div id="logBox" class="log-box"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
