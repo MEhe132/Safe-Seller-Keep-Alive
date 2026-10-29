@@ -26,7 +26,7 @@
     }
 
     body {
-      width: 390px;
+      width: 380px;
       padding: 14px;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: var(--bg);
@@ -161,7 +161,7 @@
 
     textarea {
       width: 100%;
-      height: 58px;
+      height: 62px;
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -177,55 +177,11 @@
       border-color: var(--blue);
     }
 
-    .preset-section-title {
-      font-size: 12px;
-      font-weight: 600;
-      color: #cbd5e1;
-      margin-bottom: 6px;
-    }
-
-    .preset-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-
-    .btn-preset {
-      background: #1e293b;
-      border: 2px solid #475569;
-      color: #f8fafc;
-      padding: 7px 6px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s;
-      text-align: center;
-    }
-
-    .btn-preset:hover {
-      border-color: #94a3b8;
-      background: #334155;
-    }
-
-    .btn-preset.active-safe {
-      background: rgba(22, 163, 74, 0.25);
-      border-color: #22c55e;
-      color: #4ade80;
-    }
-
-    .btn-preset.active-test {
-      background: rgba(217, 119, 6, 0.25);
-      border-color: #f59e0b;
-      color: #fbbf24;
-    }
-
     .grid-3 {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
       gap: 8px;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
 
     input[type="number"] {
@@ -298,7 +254,7 @@
       background: #090d16;
       border: 1px solid var(--border);
       border-radius: 6px;
-      height: 95px;
+      height: 105px;
       overflow-y: auto;
       padding: 6px 8px;
       font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
@@ -327,7 +283,7 @@
       <div id="countdownText" class="status-value">--</div>
     </div>
     <div style="text-align: right;">
-      <div class="status-label">Cycles Done</div>
+      <div class="status-label">Refreshes This Run</div>
       <div id="cycleCount" class="status-value">0</div>
     </div>
   </div>
@@ -345,20 +301,14 @@
     <textarea id="urlsInput" spellcheck="false" placeholder="https://www.g2g.com/offers/list&#10;https://www.u7buy.com/member/chat"></textarea>
   </div>
 
-  <div class="preset-section-title">Step 1: Choose Timer Mode</div>
-  <div class="preset-row">
-    <button type="button" id="btnSafePreset" class="btn-preset active-safe">🛡️ Safe Mode<br>(600s – 1000s)</button>
-    <button type="button" id="btnTestPreset" class="btn-preset">🧪 Quick Test<br>(10s – 15s)</button>
-  </div>
-
   <div class="grid-3">
     <div>
       <label for="minSecInput">Min (sec)</label>
-      <input type="number" id="minSecInput" min="5" max="3600" value="600">
+      <input type="number" id="minSecInput" min="60" max="3600" value="600">
     </div>
     <div>
       <label for="maxSecInput">Max (sec)</label>
-      <input type="number" id="maxSecInput" min="5" max="7200" value="1000">
+      <input type="number" id="maxSecInput" min="60" max="7200" value="1000">
     </div>
     <div>
       <label for="maxHoursInput">Auto-Stop (h)</label>
@@ -366,7 +316,6 @@
     </div>
   </div>
 
-  <div class="preset-section-title">Step 2: Start or Test</div>
   <div class="actions">
     <button type="button" id="btnToggle" class="primary btn-start">▶ Start Auto</button>
     <button type="button" id="btnTestNow" class="primary btn-test">⚡ Test 1 Refresh Now</button>

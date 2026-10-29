@@ -142,7 +142,7 @@ async function scheduleNextAlarm() {
       nextRunTime,
       statusText: `Running (Next in ${delaySec}s)`
     });
-    await appendLog(`Next refresh scheduled in ${delaySec}s (range ${data.minSec}s–${data.maxSec}s)`);
+    await appendLog(`Next refresh in ${delaySec}s (range ${data.minSec}s–${data.maxSec}s)`);
   } catch (err) {
     console.error('Error scheduling alarm:', err);
   }
@@ -226,8 +226,8 @@ async function executeRefreshCycle(isManualTest = false) {
       }
     }
 
-    const newCount = (data.refreshCount || 0) + 1;
-    await chrome.storage.local.set({ refreshCount: newCount });
+    const { refreshCount = 0 } = await chrome.storage.local.get('refreshCount');
+    await chrome.storage.local.set({ refreshCount: refreshCount + 1 });
 
     if (!isManualTest && data.isRunning) {
       await scheduleNextAlarm();
@@ -249,14 +249,15 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       await appendLog('Extension installed (600s–1000s + No-Sleep).');
     } else {
       const current = await chrome.storage.local.get(DEFAULT_STATE);
-      const updates = { preventSleep: current.preventSleep ?? true };
-      if (current.minSec === 300 && current.maxSec === 600) {
-        updates.minSec = 600;
-        updates.maxSec = 1000;
-      }
+      const updates = {
+        preventSleep: current.preventSleep ?? true,
+        minSec: current.minSec < 60 ? 600 : current.minSec,
+        maxSec: current.maxSec < 60 ? 1000 : current.maxSec,
+        refreshCount: 0
+      };
       await chrome.storage.local.set(updates);
       await syncPowerWakeLock(current.isRunning, updates.preventSleep);
-      await appendLog('Updated to v1.2 (Laptop No-Sleep enabled).');
+      await appendLog('Updated settings (Min/Max reset to 600s–1000s if under 60s).');
     }
   } catch (err) {
     console.error('onInstalled error:', err);
@@ -298,12 +299,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           preventSleep,
           urls,
           startedAt: Date.now(),
+          refreshCount: 0,
           pauseReason: ''
         });
         await syncPowerWakeLock(true, preventSleep);
         await updateBadge(true, false);
         await appendLog(
-          `Started Auto (${minSec}s–${maxSec}s | Laptop No-Sleep: ${preventSleep ? 'ON' : 'OFF'})`
+          `Started Auto (${minSec}s–${maxSec}s | No-Sleep: ${preventSleep ? 'ON' : 'OFF'})`
         );
         const res = await executeRefreshCycle(false);
         sendResponse(res);
@@ -316,15 +318,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         await chrome.storage.local.set({ preventSleep });
         await syncPowerWakeLock(isRunning, preventSleep);
         await appendLog(`Laptop No-Sleep set to: ${preventSleep ? 'ON' : 'OFF'}`);
-        sendResponse({ ok: true });
-      } else if (message.type === 'SET_PRESET') {
-        const { minSec, maxSec, label } = message.payload;
-        const { isRunning } = await chrome.storage.local.get('isRunning');
-        await chrome.storage.local.set({ minSec, maxSec });
-        await appendLog(`Switched preset: ${label} (${minSec}s–${maxSec}s)`);
-        if (isRunning) {
-          await scheduleNextAlarm();
-        }
         sendResponse({ ok: true });
       } else if (message.type === 'TEST_NOW') {
         const { minSec, maxSec, maxHours, preventSleep, urls } = message.payload;

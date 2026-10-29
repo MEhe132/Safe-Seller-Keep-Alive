@@ -15,26 +15,12 @@ function getFormValues() {
     .map((u) => u.trim())
     .filter(Boolean);
 
-  const minSec = Math.max(5, parseInt(document.getElementById('minSecInput').value, 10) || 600);
+  const minSec = Math.max(60, parseInt(document.getElementById('minSecInput').value, 10) || 600);
   const maxSec = Math.max(minSec, parseInt(document.getElementById('maxSecInput').value, 10) || 1000);
   const maxHours = Math.max(0, parseFloat(document.getElementById('maxHoursInput').value) || 0);
   const preventSleep = document.getElementById('preventSleepCheckbox').checked;
 
   return { urls, minSec, maxSec, maxHours, preventSleep };
-}
-
-function updatePresetHighlight(minSec, maxSec) {
-  const btnSafe = document.getElementById('btnSafePreset');
-  const btnTest = document.getElementById('btnTestPreset');
-
-  btnSafe.className = 'btn-preset';
-  btnTest.className = 'btn-preset';
-
-  if (Number(minSec) === 600 && Number(maxSec) === 1000) {
-    btnSafe.className = 'btn-preset active-safe';
-  } else if (Number(minSec) === 10 && Number(maxSec) === 15) {
-    btnTest.className = 'btn-preset active-test';
-  }
 }
 
 function updateSleepBarUI(isRunning, preventSleep) {
@@ -104,7 +90,7 @@ async function refreshUIFromStorage(populateInputs = false) {
       logs: []
     });
 
-    if (data.minSec === 300 && data.maxSec === 600) {
+    if (data.minSec < 60) {
       data.minSec = 600;
       data.maxSec = 1000;
       await chrome.storage.local.set({ minSec: 600, maxSec: 1000 });
@@ -121,10 +107,6 @@ async function refreshUIFromStorage(populateInputs = false) {
       document.getElementById('preventSleepCheckbox').checked = Boolean(data.preventSleep);
     }
 
-    updatePresetHighlight(
-      document.getElementById('minSecInput').value,
-      document.getElementById('maxSecInput').value
-    );
     updateSleepBarUI(data.isRunning, document.getElementById('preventSleepCheckbox').checked);
 
     const badge = document.getElementById('stateBadge');
@@ -179,42 +161,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       payload: { preventSleep }
     });
     await refreshUIFromStorage(false);
-  });
-
-  document.getElementById('btnTestPreset').addEventListener('click', async () => {
-    document.getElementById('minSecInput').value = 10;
-    document.getElementById('maxSecInput').value = 15;
-    updatePresetHighlight(10, 15);
-    await chrome.runtime.sendMessage({
-      type: 'SET_PRESET',
-      payload: { minSec: 10, maxSec: 15, label: 'Quick Test Mode' }
-    });
-    await refreshUIFromStorage(false);
-  });
-
-  document.getElementById('btnSafePreset').addEventListener('click', async () => {
-    document.getElementById('minSecInput').value = 600;
-    document.getElementById('maxSecInput').value = 1000;
-    updatePresetHighlight(600, 1000);
-    await chrome.runtime.sendMessage({
-      type: 'SET_PRESET',
-      payload: { minSec: 600, maxSec: 1000, label: 'Safe Mode' }
-    });
-    await refreshUIFromStorage(false);
-  });
-
-  document.getElementById('minSecInput').addEventListener('input', () => {
-    updatePresetHighlight(
-      document.getElementById('minSecInput').value,
-      document.getElementById('maxSecInput').value
-    );
-  });
-
-  document.getElementById('maxSecInput').addEventListener('input', () => {
-    updatePresetHighlight(
-      document.getElementById('minSecInput').value,
-      document.getElementById('maxSecInput').value
-    );
   });
 
   document.getElementById('btnToggle').addEventListener('click', async () => {
