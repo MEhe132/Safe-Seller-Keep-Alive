@@ -271,7 +271,7 @@
 </head>
 <body>
   <div class="header">
-    <div class="title">🛡️ Seller Keep-Alive v1.2</div>
+    <div class="title">🛡️ Seller Keep-Alive v1.3</div>
     <div id="stateBadge" class="badge">STOPPED</div>
   </div>
 
@@ -283,7 +283,10 @@
       <div id="countdownText" class="status-value">--</div>
     </div>
     <div style="text-align: right;">
-      <div class="status-label">Refreshes This Run</div>
+      <div class="status-label">
+        Refreshes This Run
+        <button type="button" id="btnResetCount" class="btn-clear" style="margin-left: 4px;">(Reset)</button>
+      </div>
       <div id="cycleCount" class="status-value">0</div>
     </div>
   </div>

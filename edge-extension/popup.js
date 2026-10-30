@@ -8,6 +8,8 @@ let cachedState = {
   nextRunTime: null
 };
 
+let recoveryInFlight = false;
+
 function getFormValues() {
   const urlsText = document.getElementById('urlsInput').value;
   const urls = urlsText
@@ -62,14 +64,32 @@ function renderLogs(logs = []) {
   }
 }
 
-function updateCountdownDisplay() {
+async function updateCountdownDisplay() {
   const countdownEl = document.getElementById('countdownText');
   if (!cachedState.isRunning || !cachedState.nextRunTime) {
     countdownEl.textContent = 'Not scheduled';
     return;
   }
 
-  const remainingSec = Math.max(0, Math.ceil((cachedState.nextRunTime - Date.now()) / 1000));
+  const remainingMs = cachedState.nextRunTime - Date.now();
+
+  // If the laptop was shut down and turned back on, remainingMs will be <= 0.
+  // Automatically trigger recovery so it schedules a fresh countdown instead of sticking at 0s!
+  if (remainingMs <= -1500 && !recoveryInFlight) {
+    recoveryInFlight = true;
+    countdownEl.textContent = 'Resuming...';
+    try {
+      await chrome.runtime.sendMessage({ type: 'ENSURE_HEALTHY' });
+      await refreshUIFromStorage(false);
+    } catch {
+      // Ignore if SW is still waking
+    } finally {
+      recoveryInFlight = false;
+    }
+    return;
+  }
+
+  const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
   const mins = Math.floor(remainingSec / 60);
   const secs = remainingSec % 60;
   countdownEl.textContent = mins > 0 ? `${mins}m ${secs}s (${remainingSec}s)` : `${remainingSec}s`;
@@ -138,7 +158,7 @@ async function refreshUIFromStorage(populateInputs = false) {
     }
 
     document.getElementById('cycleCount').textContent = String(data.refreshCount || 0);
-    updateCountdownDisplay();
+    await updateCountdownDisplay();
     renderLogs(data.logs || []);
   } catch (err) {
     console.error('Failed to load UI state:', err);
@@ -146,9 +166,18 @@ async function refreshUIFromStorage(populateInputs = false) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Check if timer needs recovery after laptop restart
+  try {
+    await chrome.runtime.sendMessage({ type: 'ENSURE_HEALTHY' });
+  } catch {
+    // Ignore
+  }
+
   await refreshUIFromStorage(true);
 
-  setInterval(updateCountdownDisplay, 1000);
+  setInterval(() => {
+    updateCountdownDisplay();
+  }, 1000);
 
   chrome.storage.onChanged.addListener(async () => {
     await refreshUIFromStorage(false);
@@ -168,9 +197,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (cachedState.isRunning) {
       await chrome.runtime.sendMessage({ type: 'STOP' });
     } else {
+      // Directly reset counter in storage from popup.js as well so it ALWAYS starts at 0
+      await chrome.storage.local.set({ refreshCount: 0 });
+      document.getElementById('cycleCount').textContent = '0';
       await chrome.runtime.sendMessage({ type: 'START', payload });
     }
     await refreshUIFromStorage(false);
+  });
+
+  document.getElementById('btnResetCount').addEventListener('click', async () => {
+    await chrome.storage.local.set({ refreshCount: 0 });
+    document.getElementById('cycleCount').textContent = '0';
   });
 
   document.getElementById('btnTestNow').addEventListener('click', async () => {
@@ -180,6 +217,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('btnClearLogs').addEventListener('click', async () => {
+    await chrome.storage.local.set({ logs: [], refreshCount: 0 });
     await chrome.runtime.sendMessage({ type: 'CLEAR_LOGS' });
     await refreshUIFromStorage(false);
   });

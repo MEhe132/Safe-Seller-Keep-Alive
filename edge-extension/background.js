@@ -42,8 +42,6 @@ async function appendLog(message) {
 async function syncPowerWakeLock(isRunning, preventSleep = true) {
   try {
     if (isRunning && preventSleep) {
-      // On Windows S0 Modern Standby laptops, 'display' is required because turning off the display
-      // immediately locks Windows (Face Unlock) and suspends desktop browsers.
       chrome.power.requestKeepAwake('display');
       await chrome.alarms.create(HEARTBEAT_ALARM, { periodInMinutes: 0.4 });
     } else {
@@ -160,7 +158,7 @@ function getBaseDomain(hostname) {
   return hostname;
 }
 
-async function executeRefreshCycle(isManualTest = false) {
+async function executeRefreshCycle({ isManualTest = false, isInitialStart = false } = {}) {
   try {
     const data = await chrome.storage.local.get(DEFAULT_STATE);
     const validUrls = (data.urls || [])
@@ -230,8 +228,13 @@ async function executeRefreshCycle(isManualTest = false) {
       }
     }
 
-    const { refreshCount = 0 } = await chrome.storage.local.get('refreshCount');
-    await chrome.storage.local.set({ refreshCount: refreshCount + 1 });
+    // Only increment counter on completed timer cycles or manual tests, so Start Auto begins at 0
+    if (!isInitialStart) {
+      const { refreshCount = 0 } = await chrome.storage.local.get('refreshCount');
+      await chrome.storage.local.set({ refreshCount: refreshCount + 1 });
+    } else {
+      await chrome.storage.local.set({ refreshCount: 0 });
+    }
 
     if (!isManualTest && data.isRunning) {
       await scheduleNextAlarm();
@@ -242,6 +245,33 @@ async function executeRefreshCycle(isManualTest = false) {
     console.error('Error during refresh cycle:', err);
     await appendLog(`Error: ${err.message}`);
     return { ok: false, error: err.message };
+  }
+}
+
+// Recover if timer expired while laptop was shut down or browser was closed
+async function ensureTimerHealthy() {
+  try {
+    const data = await chrome.storage.local.get(DEFAULT_STATE);
+    if (!data.isRunning) {
+      await syncPowerWakeLock(false, false);
+      await updateBadge(false, Boolean(data.pauseReason));
+      return;
+    }
+
+    await syncPowerWakeLock(true, data.preventSleep);
+    await updateBadge(true, false);
+
+    const existingAlarm = await chrome.alarms.get(ALARM_NAME);
+    const isPastDue = !data.nextRunTime || Date.now() >= data.nextRunTime - 1000;
+
+    if (!existingAlarm || isPastDue) {
+      // Reset session start time if recovering after a long laptop shutdown
+      await chrome.storage.local.set({ startedAt: Date.now() });
+      await appendLog('Laptop/Browser resumed — restarting countdown timer.');
+      await executeRefreshCycle({ isManualTest: false, isInitialStart: false });
+    }
+  } catch (err) {
+    console.error('ensureTimerHealthy error:', err);
   }
 }
 
@@ -260,8 +290,8 @@ chrome.runtime.onInstalled.addListener(async (details) => {
         refreshCount: 0
       };
       await chrome.storage.local.set(updates);
-      await syncPowerWakeLock(current.isRunning, updates.preventSleep);
-      await appendLog('Updated settings (Min/Max reset to 600s–1000s if under 60s).');
+      await ensureTimerHealthy();
+      await appendLog('Extension updated to v1.3 (Counter reset to 0).');
     }
   } catch (err) {
     console.error('onInstalled error:', err);
@@ -270,9 +300,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 chrome.runtime.onStartup.addListener(async () => {
   try {
-    const data = await chrome.storage.local.get(DEFAULT_STATE);
-    await syncPowerWakeLock(data.isRunning, data.preventSleep);
-    await updateBadge(data.isRunning, Boolean(data.pauseReason));
+    await ensureTimerHealthy();
   } catch (err) {
     console.error('onStartup error:', err);
   }
@@ -287,15 +315,13 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     }
 
     if (alarm.name === HEARTBEAT_ALARM) {
-      if (preventSleep) {
-        chrome.power.requestKeepAwake('display');
-      }
+      await ensureTimerHealthy();
       return;
     }
 
     if (alarm.name !== ALARM_NAME) return;
     await syncPowerWakeLock(true, preventSleep);
-    await executeRefreshCycle(false);
+    await executeRefreshCycle({ isManualTest: false, isInitialStart: false });
   } catch (err) {
     console.error('onAlarm error:', err);
   }
@@ -320,12 +346,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         await syncPowerWakeLock(true, preventSleep);
         await updateBadge(true, false);
         await appendLog(
-          `Started Auto (${minSec}s–${maxSec}s | No-Sleep: ${preventSleep ? 'ON' : 'OFF'})`
+          `Started Auto (${minSec}s–${maxSec}s | Counter reset to 0)`
         );
-        const res = await executeRefreshCycle(false);
+        const res = await executeRefreshCycle({ isManualTest: false, isInitialStart: true });
         sendResponse(res);
       } else if (message.type === 'STOP') {
         await stopRunner('Stopped by user', false);
+        sendResponse({ ok: true });
+      } else if (message.type === 'ENSURE_HEALTHY') {
+        await ensureTimerHealthy();
         sendResponse({ ok: true });
       } else if (message.type === 'TOGGLE_SLEEP_LOCK') {
         const { preventSleep } = message.payload;
@@ -338,7 +367,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const { minSec, maxSec, maxHours, preventSleep, urls } = message.payload;
         await chrome.storage.local.set({ minSec, maxSec, maxHours, preventSleep, urls });
         await appendLog('Manual test refresh triggered');
-        const res = await executeRefreshCycle(true);
+        const res = await executeRefreshCycle({ isManualTest: true, isInitialStart: false });
         sendResponse(res);
       } else if (message.type === 'CLEAR_LOGS') {
         await chrome.storage.local.set({ logs: [], refreshCount: 0 });
